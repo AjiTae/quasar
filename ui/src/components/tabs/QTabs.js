@@ -7,6 +7,7 @@ import TimeoutMixin from '../../mixins/timeout.js'
 import { stop } from '../../utils/event.js'
 import { slot } from '../../utils/slot.js'
 import { cache } from '../../utils/vm.js'
+import debounce from '../../utils/debounce.js'
 
 function getIndicatorClass (color, top, vertical) {
   const pos = vertical === true
@@ -66,6 +67,13 @@ export default Vue.extend({
     breakpoint: {
       type: [String, Number],
       default: 600
+    },
+
+    showArrows: {
+      type: Boolean,
+      default () {
+        return this.$q.platform.is.desktop
+      }
     },
 
     vertical: Boolean,
@@ -292,20 +300,24 @@ export default Vue.extend({
         let offset = this.vertical === true ? newPos.top - top : newPos.left - left
 
         if (offset < 0) {
-          this.$refs.content[this.vertical === true ? 'scrollTop' : 'scrollLeft'] += offset
+          this.$refs.content[this.vertical === true ? 'scrollTop' : 'scrollLeft'] += Math.round(offset)
           this.__updateArrows()
           return
         }
 
         offset += this.vertical === true ? newPos.height - height : newPos.width - width
         if (offset > 0) {
-          this.$refs.content[this.vertical === true ? 'scrollTop' : 'scrollLeft'] += offset
+          this.$refs.content[this.vertical === true ? 'scrollTop' : 'scrollLeft'] += Math.round(offset)
           this.__updateArrows()
         }
       }
     },
 
     __updateArrows () {
+      if (this.showArrows !== true) {
+        return
+      }
+
       const
         content = this.$refs.content,
         rect = content.getBoundingClientRect(),
@@ -368,10 +380,10 @@ export default Vue.extend({
 
   created () {
     this.buffer = []
+  },
 
-    if (this.$q.platform.is.desktop !== true) {
-      this.__updateArrows = () => {}
-    }
+  mounted () {
+    this.$refs.content.addEventListener('scroll', debounce(this.__updateArrows, 150))
   },
 
   beforeDestroy () {
@@ -392,7 +404,7 @@ export default Vue.extend({
       }, slot(this, 'default'))
     ]
 
-    this.$q.platform.is.desktop === true && child.push(
+    this.showArrows === true && child.push(
       h(QIcon, {
         staticClass: 'q-tabs__arrow q-tabs__arrow--left absolute q-tab__icon',
         class: this.leftArrow === true ? '' : 'q-tabs__arrow--faded',
